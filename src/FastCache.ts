@@ -50,7 +50,9 @@ export class FastCache {
 
   private client: any;
   private prefix: string;
+  private reloadPrefix: string;
   private ttl: number;
+  private subscribeClient: RedisClient;
 
   private constructor(opts?: FastCacheOpts) {
     this.init(opts);
@@ -59,6 +61,7 @@ export class FastCache {
   public init(opts: FastCacheOpts) {
     const createRedisClient = opts.createRedisClient || createClient;
     const client = createRedisClient(opts.redis);
+    this.subscribeClient = createRedisClient(opts.redis);
     debug(`connect redis: ${opts.redis.host}:${opts.redis.port}/${opts.redis.db}`);
     // wrap redis client with promisified functions
     this.client = new Proxy(client, {
@@ -71,12 +74,51 @@ export class FastCache {
       },
     });
     this.prefix = opts.prefix || '';
+    this.reloadPrefix = `${this.prefix || 'bus'}:${opts.redis.db || 0}:`;
     this.ttl = opts.ttl || 60 * 5; // 5min
   }
 
   public destroy() {
     debug('destroy');
     this.client.end(true);
+    this.subscribeClient.end(true);
+  }
+
+  //---------------------------------------------------------
+  // system reload
+
+  public broadcast(topic: string, message: string) {
+    const channel = this.toChannelName(topic);
+    if (!message) {
+      debug('**warning** nothing to forward!', channel);
+      return;
+    }
+    this.client.publish(channel, message);
+  }
+
+  public onReload(topic: string, listener: (string) => void) {
+    if (typeof listener !== 'function') {
+      throw new TypeError(`the "listener" argument must be of type function. Received ${typeof listener}`);
+    }
+
+    this.subscribeClient.on('message', (channel, message) => {
+      if (this.toChannelName(topic) === channel) {
+        debug(channel, message);
+        listener(message);
+      }
+    });
+  }
+
+  subscribe(topic: string) {
+    this.subscribeClient.subscribe(this.toChannelName(topic));
+  }
+
+  unsubscribe(topic: string) {
+    this.subscribeClient.unsubscribe(this.toChannelName(topic));
+  }
+
+  private toChannelName(topic: string) {
+    return this.reloadPrefix + topic;
   }
 
   //---------------------------------------------------------

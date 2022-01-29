@@ -4,6 +4,8 @@ import { FastCache } from './FastCache';
 describe('FastCache', () => {
   let client;
   let cache;
+  const TEST_DELAY = 100;
+  const reloadChannel = 'SYSTEM_RELOAD';
 
   beforeEach((done) => {
     const redisConfig = { host: 'localhost', port: 6379, db: 0 };
@@ -216,6 +218,51 @@ describe('FastCache', () => {
         const r2 = cache.cacheKey({ test: x });
         expect(r1).toBe(r2);
       }
+    });
+  });
+
+  describe('broadcast', () => {
+    it('should forward target message to all listeners', (done) => {
+      cache.subscribe(reloadChannel);
+      const acc = [];
+      cache.onReload(reloadChannel, (target) => {
+        acc.push(target);
+      });
+      const acc2 = [];
+      cache.onReload(reloadChannel, (target) => {
+        acc2.push(target);
+      });
+      cache.broadcast(reloadChannel, 'foo');
+      cache.broadcast(reloadChannel, 'bar');
+      cache.broadcast(reloadChannel, 'baz');
+      cache.broadcast(reloadChannel, 'qux');
+      setTimeout(() => {
+        expect(acc).toEqual(['foo', 'bar', 'baz', 'qux']);
+        expect(acc2).toEqual(['foo', 'bar', 'baz', 'qux']);
+        done();
+      }, TEST_DELAY);
+    });
+
+    test('should not forward target message after unsubscribe', (done) => {
+      cache.subscribe(reloadChannel);
+      const acc = [];
+      const listener = (target) => {
+        acc.push(target);
+      };
+      cache.onReload(reloadChannel, listener);
+
+      cache.broadcast(reloadChannel, 'foo');
+      cache.broadcast(reloadChannel, 'bar');
+      setTimeout(() => {
+        cache.unsubscribe(reloadChannel);
+        setTimeout(() => {
+          cache.broadcast(reloadChannel, 'baz');
+          setTimeout(() => {
+            expect(acc).toEqual(['foo', 'bar']);
+            done();
+          }, TEST_DELAY);
+        }, TEST_DELAY);
+      }, TEST_DELAY);
     });
   });
 });
