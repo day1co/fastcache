@@ -161,7 +161,7 @@ describe('FastCache', () => {
       });
     });
     describe('remove', () => {
-      test('should work', async (done) => {
+      test('should work', (done) => {
         client.sadd('hello', 'foo', 'bar', 'baz', 'qux', () => {
           const set = cache.setOf('hello');
           set
