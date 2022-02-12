@@ -1,9 +1,9 @@
 {
-  "name": "@fastcampus/fastcache",
-  "version": "0.0.10",
+  "name": "@day1co/fastcache",
+  "version": "3.0.0",
   "description": "fast and simple cache using redis",
-  "url": "https://github.com/fastcampus/fastcache",
-  "repository": "https://github.com/fastcampus/fastcache",
+  "url": "https://github.com/day1co/fastcache",
+  "repository": "https://github.com/day1co/fastcache",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -29,12 +29,12 @@
     "eslint-plugin-prettier": "^4.0.0",
     "jest": "^27.5.1",
     "prettier": "^2.5.1",
-    "redis": "^4.0.3",
+    "redis": "=3.1.2",
     "redis-mock": "^0.56.3",
     "ts-jest": "^27.1.3",
     "typescript": "^4.5.5"
   },
   "peerDependencies": {
-    "@types/redis": "^4.0.10"
+    "@types/redis": "=3.1.2"
   }
 }
