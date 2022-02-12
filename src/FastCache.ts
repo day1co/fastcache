@@ -53,13 +53,9 @@ export class FastCache {
   private ttl: number;
 
   private constructor(opts?: FastCacheOpts) {
-    this.init(opts);
-  }
-
-  public init(opts: FastCacheOpts) {
-    const createRedisClient = opts.createRedisClient || createClient;
-    const client = createRedisClient(opts.redis);
-    debug(`connect redis: ${opts.redis.host}:${opts.redis.port}/${opts.redis.db}`);
+    const createRedisClient = opts?.createRedisClient ?? createClient;
+    const client = createRedisClient(opts?.redis);
+    debug(`connect redis: ${opts?.redis?.host}:${opts?.redis?.port}/${opts?.redis?.db}`);
     // wrap redis client with promisified functions
     this.client = new Proxy(client, {
       get(target, p) {
@@ -70,8 +66,8 @@ export class FastCache {
         return target[p];
       },
     });
-    this.prefix = opts.prefix || '';
-    this.ttl = opts.ttl || 60 * 5; // 5min
+    this.prefix = opts?.prefix ?? '';
+    this.ttl = opts?.ttl ?? 60 * 5; // 5min
   }
 
   public destroy() {
@@ -219,7 +215,7 @@ export class FastCache {
       return JSON.stringify(o);
     } catch (e) {
       // TODO: better error handling
-      return null;
+      return '';
     }
   }
 
