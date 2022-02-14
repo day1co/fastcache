@@ -1,4 +1,4 @@
-import redis from 'redis-mock';
+import Redis from 'ioredis-mock';
 import { FastCache } from './FastCache';
 
 describe('FastCache', () => {
@@ -6,9 +6,8 @@ describe('FastCache', () => {
   let cache;
 
   beforeEach((done) => {
-    const redisConfig = { host: 'localhost', port: 6379, db: 0 };
-    cache = FastCache.create({ redis: redisConfig, createRedisClient: redis.createClient });
-    client = redis.createClient(redisConfig);
+    cache = FastCache.create({ createRedisClient: () => new Redis() });
+    client = new Redis();
     client.flushdb(done);
   });
 

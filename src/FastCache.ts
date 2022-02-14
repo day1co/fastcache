@@ -1,6 +1,6 @@
 import Debug from 'debug';
-import { ClientOpts, RedisClient, createClient } from 'redis';
-import { promisify } from 'util';
+import { Redis, RedisOptions } from 'ioredis';
+import IORedis from 'ioredis';
 import { createHash } from 'crypto';
 
 const debug = Debug('fastcache');
@@ -8,18 +8,18 @@ const debug = Debug('fastcache');
 export interface FastCacheOpts {
   prefix?: string;
   ttl?: number;
-  redis?: ClientOpts;
-  createRedisClient?: (ClientOpts) => RedisClient;
+  redis?: RedisOptions;
+  createRedisClient?: (RedisOptions?) => Redis;
 }
 
 export interface ListOperations {
   key: string;
   push(value: string): Promise<void>;
-  pop(): Promise<string>;
+  pop(): Promise<string | null>;
   unshift(value: string): Promise<void>;
-  shift(): Promise<string>;
+  shift(): Promise<string | null>;
   setAll(values: Array<string>): Promise<void>;
-  getAll(start: number, stop: number): Promise<string>;
+  getAll(start: number, stop: number): Promise<Array<string | null>>;
   removeAll(start: number, stop: number): Promise<void>;
   length(): Promise<number>;
 }
@@ -27,10 +27,10 @@ export interface ListOperations {
 export interface MapOperations {
   key: string;
   set(field: string, value: string): Promise<void>;
-  get(field: string): Promise<string>;
+  get(field: string): Promise<string | null>;
   remove(field: string): Promise<void>;
   setAll(obj: any): Promise<void>;
-  getAll(fields: Array<string>): Promise<Array<string>>;
+  getAll(fields: Array<string>): Promise<Array<string | null>>;
   removeAll(fields: Array<string>): Promise<void>;
   length(): Promise<number>;
 }
@@ -48,89 +48,67 @@ export class FastCache {
     return new FastCache(opts);
   }
 
-  private client: any;
+  private client: Redis;
   private prefix: string;
   private ttl: number;
 
   private constructor(opts?: FastCacheOpts) {
-    const createRedisClient = opts?.createRedisClient ?? createClient;
-    const client = createRedisClient(opts?.redis);
+    this.client = opts?.createRedisClient ? opts?.createRedisClient(opts?.redis) : new IORedis(opts?.redis);
     debug(`connect redis: ${opts?.redis?.host}:${opts?.redis?.port}/${opts?.redis?.db}`);
-    // wrap redis client with promisified functions
-    this.client = new Proxy(client, {
-      get(target, p) {
-        const m = /^(\w+)Async$/.exec(String(p));
-        if (m) {
-          return promisify(target[m[1]]).bind(target);
-        }
-        return target[p];
-      },
-    });
     this.prefix = opts?.prefix ?? '';
     this.ttl = opts?.ttl ?? 60 * 5; // 5min
   }
 
   public destroy() {
     debug('destroy');
-    this.client.end(true);
+    this.client.disconnect();
   }
 
   //---------------------------------------------------------
 
   public async set(key: string, value: string, ex?: number): Promise<void> {
-    return this.client.setAsync(key, value, 'EX', ex || this.ttl);
+    await this.client.set(key, value, 'EX', ex ?? this.ttl);
   }
 
-  public async get(key: string): Promise<string> {
-    return this.client.getAsync(key);
+  public async get(key: string): Promise<string | null> {
+    return this.client.get(key);
   }
 
   public async remove(key: string): Promise<void> {
-    return this.client.delAsync(key);
+    await this.client.del(key);
   }
 
   public async setAll(obj): Promise<void> {
     // mset doesn't support expire!
-    // return msetAsync(obj);
-    return new Promise((resolve, reject) => {
-      const multi = this.client.multi();
-      for (const [key, value] of Object.entries(obj)) {
-        multi.set(key, value as string, 'EX', this.ttl);
-      }
-      multi.exec((err) => {
-        err ? reject(err) : resolve();
-      });
-    });
+    // return mset(obj);
+    const multi = this.client.multi();
+    for (const [key, value] of Object.entries(obj)) {
+      multi.set(key, value as string, 'EX', this.ttl);
+    }
+    await multi.exec();
   }
 
-  public async getAll(keys: Array<string>): Promise<string> {
-    return this.client.mgetAsync(keys);
+  public async getAll(keys: Array<string>): Promise<Array<string | null>> {
+    return this.client.mget(keys);
   }
 
   public async removeAll(keys: Array<string>): Promise<void> {
-    return this.client.delAsync(keys);
+    await this.client.del(keys);
   }
 
   public async flush(pattern = '*'): Promise<void> {
     if (pattern === '*') {
-      return this.client.flushdbAsync('ASYNC');
+      await this.client.flushdb('async');
+      return;
     }
     // XXX: partial flush
-    const scanCallback = (err, result) => {
-      if (err) {
-        return debug('flush scan err', err);
-      }
-      const keys = result[1];
+    let [cursor, keys] = await this.client.scan('0', 'MATCH', pattern, 'COUNT', 50);
+    while (cursor !== '0') {
       if (keys && keys.length) {
-        this.client.unlink(keys, (err) => {
-          err ? debug('flush unlink err', err) : debug('flush unlink ok', result);
-        });
+        await this.client.unlink(keys);
       }
-      if (result[0] !== '0') {
-        this.client.scan(result[0], 'MATCH', pattern, 'COUNT', String(50), scanCallback);
-      }
-    };
-    this.client.scan('0', 'MATCH', pattern, 'COUNT', String(50), scanCallback);
+      [cursor, keys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 50);
+    }
   }
 
   //---------------------------------------------------------
@@ -139,14 +117,22 @@ export class FastCache {
   public list(key: string): ListOperations {
     return {
       key,
-      push: async (value: string): Promise<void> => this.client.rpushAsync(key, value),
-      pop: async (): Promise<string> => this.client.rpopAsync(key),
-      unshift: async (value: string): Promise<void> => this.client.lpushAsync(key, value),
-      shift: async (): Promise<string> => this.client.lpopAsync(key),
-      setAll: async (values: Array<string>): Promise<void> => this.client.lpushAsync(key, values),
-      getAll: async (start = 0, stop = -1): Promise<string> => this.client.lrangeAsync(key, start, stop),
-      removeAll: async (start = -1, stop = 0): Promise<void> => this.client.ltrimAsync(key, start, stop),
-      length: async (): Promise<number> => this.client.llenAsync(key),
+      push: async (value: string): Promise<void> => {
+        await this.client.rpush(key, value);
+      },
+      pop: async (): Promise<string | null> => this.client.rpop(key),
+      unshift: async (value: string): Promise<void> => {
+        await this.client.lpush(key, value);
+      },
+      shift: async (): Promise<string> => this.client.lpop(key),
+      setAll: async (values: Array<string>): Promise<void> => {
+        await this.client.lpush(key, values);
+      },
+      getAll: async (start = 0, stop = -1): Promise<Array<string | null>> => this.client.lrange(key, start, stop),
+      removeAll: async (start = -1, stop = 0): Promise<void> => {
+        await this.client.ltrim(key, start, stop);
+      },
+      length: async (): Promise<number> => this.client.llen(key),
     };
   }
 
@@ -156,13 +142,21 @@ export class FastCache {
   map(key: string): MapOperations {
     return {
       key,
-      set: async (field: string, value: string): Promise<void> => this.client.hsetAsync(key, field, value),
-      get: async (field: string): Promise<string> => this.client.hgetAsync(key, field),
-      remove: async (field: string): Promise<void> => this.client.hdelAsync(key, field),
-      setAll: async (obj: any): Promise<void> => this.client.hmsetAsync(key, obj),
-      getAll: async (fields: Array<string>): Promise<Array<string>> => this.client.hmgetAsync(key, fields),
-      removeAll: async (fields: Array<string>): Promise<void> => this.client.hdelAsync(key, fields),
-      length: async (): Promise<number> => this.client.hlenAsync(key),
+      set: async (field: string, value: string): Promise<void> => {
+        await this.client.hset(key, field, value);
+      },
+      get: async (field: string): Promise<string | null> => this.client.hget(key, field),
+      remove: async (field: string): Promise<void> => {
+        await this.client.hdel(key, field);
+      },
+      setAll: async (obj: any): Promise<void> => {
+        await this.client.hmset(key, obj);
+      },
+      getAll: async (fields: Array<string>): Promise<Array<string | null>> => this.client.hmget(key, fields),
+      removeAll: async (fields: Array<string>): Promise<void> => {
+        await this.client.hdel(key, fields);
+      },
+      length: (): Promise<number> => this.client.hlen(key),
     };
   }
 
@@ -171,9 +165,13 @@ export class FastCache {
   setOf(key: string): SetOperations {
     return {
       key,
-      add: async (...values: Array<string>) => this.client.saddAsync(key, ...values),
-      remove: async (...values: Array<string>) => this.client.sremAsync(key, ...values),
-      contains: async (value: string): Promise<boolean> => this.client.sismemberAsync(key, value),
+      add: async (...values: Array<string>) => {
+        await this.client.sadd(key, ...values);
+      },
+      remove: async (...values: Array<string>) => {
+        await this.client.srem(key, ...values);
+      },
+      contains: async (value: string): Promise<boolean> => (await this.client.sismember(key, value)) === 1,
       length: async (): Promise<number> => this.client.scard(key),
     };
   }
