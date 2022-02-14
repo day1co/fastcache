@@ -5,8 +5,8 @@
   "url": "https://github.com/day1co/fastcache",
   "repository": "https://github.com/day1co/fastcache",
   "license": "MIT",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "scripts": {
     "prepublishOnly": "npm run build",
     "pretest": "npm run lint",
