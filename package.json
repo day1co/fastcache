@@ -17,6 +17,9 @@
     "build": "tsc",
     "start": "tsc -w"
   },
+  "dependencies": {
+    "ioredis": "^4.28.5"
+  },
   "devDependencies": {
     "@tsconfig/node16": "^1.0.2",
     "@types/ioredis": "^4.28.8",
@@ -27,7 +30,6 @@
     "eslint": "^8.9.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-prettier": "^4.0.0",
-    "ioredis": "^4.28.5",
     "ioredis-mock": "^7.0.0",
     "jest": "^27.5.1",
     "prettier": "^2.5.1",
