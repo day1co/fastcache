@@ -1,9 +1,8 @@
-import Debug from 'debug';
+import { createHash } from 'crypto';
 import { Redis, RedisOptions } from 'ioredis';
 import IORedis from 'ioredis';
-import { createHash } from 'crypto';
-
-const debug = Debug('fastcache');
+import { LoggerFactory } from '@day1co/pebbles';
+import type { Logger } from '@day1co/pebbles';
 
 export interface FastCacheOpts {
   prefix?: string;
@@ -51,16 +50,18 @@ export class FastCache {
   private client: Redis;
   private prefix: string;
   private ttl: number;
+  private logger: Logger;
 
   private constructor(opts?: FastCacheOpts) {
+    this.logger = LoggerFactory.getLogger('fastcache');
     this.client = opts?.createRedisClient ? opts?.createRedisClient(opts?.redis) : new IORedis(opts?.redis);
-    debug(`connect redis: ${opts?.redis?.host}:${opts?.redis?.port}/${opts?.redis?.db}`);
+    this.logger.debug(`connect redis: ${opts?.redis?.host}:${opts?.redis?.port}/${opts?.redis?.db}`);
     this.prefix = opts?.prefix ?? '';
     this.ttl = opts?.ttl ?? 60 * 5; // 5min
   }
 
   public destroy() {
-    debug('destroy');
+    this.logger.debug('destroy');
     this.client.disconnect();
   }
 
@@ -187,16 +188,16 @@ export class FastCache {
       .then((result) => {
         setImmediate(() =>
           this.set(key, this.serialize(result))
-            .then((result) => debug('set ok', result))
-            .catch((err) => debug('set error', err))
+            .then((result) => this.logger.debug('set ok: %o', result))
+            .catch((err) => this.logger.error('set error: %o', err))
         );
         return result;
       })
       .catch((err) => {
         setImmediate(() =>
           this.remove(key)
-            .then((result) => debug('set ok', result))
-            .catch((err) => debug('set error', err))
+            .then((result) => this.logger.debug('set ok: %o', result))
+            .catch((err) => this.logger.error('set error: %o', err))
         );
         throw err;
       });
