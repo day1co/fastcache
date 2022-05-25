@@ -1,6 +1,6 @@
 {
   "name": "@day1co/fastcache",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "fast and simple cache using redis",
   "url": "https://github.com/day1co/fastcache",
   "repository": "https://github.com/day1co/fastcache",
@@ -8,17 +8,23 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
+    "build": "tsc",
+    "clean": "npm-run-all clean:build clean:module",
+    "clean:build": "rimraf ./coverage ./lib",
+    "clean:module": "rimraf ./node_modules",
+    "lint": "eslint --ext .js --ext .ts ./src",
+    "prebuild": "npm-run-all clean:build lint",
     "prepublishOnly": "npm run build",
     "pretest": "npm run lint",
-    "prebuild": "npm run lint",
-    "lint": "eslint --ext .js --ext .ts ./src",
+    "serve": "echo no serve",
+    "start": "npm run serve",
     "test": "jest --forceExit --detectOpenHandles --coverage --verbose ./src",
     "ci:test": "npm run test",
-    "build": "tsc",
-    "start": "tsc -w"
+    "watch": "tsc -w"
   },
   "dependencies": {
-    "ioredis": "^4.28.5"
+    "ioredis": "^4.28.5",
+    "@day1co/pebbles": "~3.1.18"
   },
   "devDependencies": {
     "@tsconfig/node16": "^1.0.2",
@@ -32,7 +38,9 @@
     "eslint-plugin-prettier": "^4.0.0",
     "ioredis-mock": "^7.0.0",
     "jest": "^27.5.1",
+    "npm-run-all": "^4.1.5",
     "prettier": "^2.5.1",
+    "rimraf": "^3.0.2",
     "ts-jest": "^27.1.3",
     "typescript": "^4.5.5"
   }
