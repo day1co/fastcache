@@ -54,8 +54,9 @@ export class FastCache {
 
   private constructor(opts?: FastCacheOpts) {
     this.logger = LoggerFactory.getLogger('fastcache');
+    this.logger.debug('opts: %o', opts);
     this.client = opts?.createRedisClient ? opts?.createRedisClient(opts?.redis) : new IORedis(opts?.redis);
-    this.logger.debug(`connect redis: ${opts?.redis?.host}:${opts?.redis?.port}/${opts?.redis?.db}`);
+    this.logger.debug(`connected redis: ${opts?.redis?.host}:${opts?.redis?.port}/${opts?.redis?.db}`);
     this.prefix = opts?.prefix ?? '';
     this.ttl = opts?.ttl ?? 60 * 5; // 5min
   }
