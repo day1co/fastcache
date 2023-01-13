@@ -1,4 +1,4 @@
-import { FastCache } from '../src/fast-cache';
+import { FastCache } from '../src';
 
 const main = async () => {
   const cache = FastCache.create({ redis: { host: '127.0.0.1', port: 6379, db: 0 } });
@@ -10,7 +10,7 @@ const main = async () => {
   const list = cache.list('bar');
   await list.unshift('one');
   await list.push('two');
-  console.log(await list.getAll());
+  console.log(await list.getAll(0, -1));
   // [ one, two ]
   console.log(await list.shift());
   // one

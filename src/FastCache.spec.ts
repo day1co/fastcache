@@ -1,9 +1,10 @@
 import Redis from 'ioredis-mock';
 import { FastCache } from './FastCache';
+import type { Redis as IoRedis } from 'ioredis';
 
 describe('FastCache', () => {
-  let client;
-  let cache;
+  let client: IoRedis;
+  let cache: FastCache;
 
   beforeEach((done) => {
     cache = FastCache.create({ createRedisClient: () => new Redis() });
@@ -50,7 +51,7 @@ describe('FastCache', () => {
       client.set('hello', test);
       cache.get('hello').then((value) => {
         expect(value).toBe(test);
-        cache.remove('hello').then((value) => {
+        cache.remove('hello').then(() => {
           cache.get('hello').then((value) => {
             expect(value).toBeNull();
             done();
