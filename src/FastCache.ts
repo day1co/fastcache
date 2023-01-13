@@ -8,7 +8,7 @@ export interface FastCacheOpts {
   prefix?: string;
   ttl?: number;
   redis?: RedisOptions;
-  createRedisClient?: (RedisOptions?) => Redis;
+  createRedisClient?: (opts: RedisOptions) => Redis;
 }
 
 export interface ListOperations {
@@ -55,7 +55,7 @@ export class FastCache {
   private constructor(opts?: FastCacheOpts) {
     this.logger = LoggerFactory.getLogger('fastcache');
     this.logger.debug('opts: %o', opts);
-    this.client = opts?.createRedisClient ? opts?.createRedisClient(opts?.redis) : new IORedis(opts?.redis);
+    this.client = opts?.createRedisClient ? opts?.createRedisClient(opts?.redis ?? {}) : new IORedis(opts?.redis ?? {});
     this.logger.debug(`connected redis: ${opts?.redis?.host}:${opts?.redis?.port}/${opts?.redis?.db}`);
     this.prefix = opts?.prefix ?? '';
     this.ttl = opts?.ttl ?? 60 * 5; // 5min
@@ -80,7 +80,7 @@ export class FastCache {
     await this.client.del(key);
   }
 
-  public async setAll(obj): Promise<void> {
+  public async setAll(obj: Record<string, unknown>): Promise<void> {
     // mset doesn't support expire!
     // return mset(obj);
     const multi = this.client.multi();
@@ -100,7 +100,7 @@ export class FastCache {
 
   public async flush(pattern = '*'): Promise<void> {
     if (pattern === '*') {
-      await this.client.flushdb('async');
+      await this.client.flushdb('ASYNC');
       return;
     }
     // XXX: partial flush
@@ -126,9 +126,9 @@ export class FastCache {
       unshift: async (value: string): Promise<void> => {
         await this.client.lpush(key, value);
       },
-      shift: async (): Promise<string> => this.client.lpop(key),
+      shift: async (): Promise<string | null> => this.client.lpop(key),
       setAll: async (values: Array<string>): Promise<void> => {
-        await this.client.lpush(key, values);
+        await this.client.lpush(key, ...values);
       },
       getAll: async (start = 0, stop = -1): Promise<Array<string | null>> => this.client.lrange(key, start, stop),
       removeAll: async (start = -1, stop = 0): Promise<void> => {
@@ -154,9 +154,9 @@ export class FastCache {
       setAll: async (obj: any): Promise<void> => {
         await this.client.hmset(key, obj);
       },
-      getAll: async (fields: Array<string>): Promise<Array<string | null>> => this.client.hmget(key, fields),
+      getAll: async (fields: Array<string>): Promise<Array<string | null>> => this.client.hmget(key, ...fields),
       removeAll: async (fields: Array<string>): Promise<void> => {
-        await this.client.hdel(key, fields);
+        await this.client.hdel(key, ...fields);
       },
       length: (): Promise<number> => this.client.hlen(key),
     };
