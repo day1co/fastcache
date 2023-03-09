@@ -180,12 +180,12 @@ export class FastCache {
 
   //---------------------------------------------------------
 
-  public async withCache(key: string, executor: Promise<any>): Promise<any> {
+  public async withCache(key: string, executor: () => Promise<unknown>): Promise<unknown> {
     const cached = await this.get(key);
     if (cached) {
       return this.deserialize(cached);
     }
-    return executor
+    return executor()
       .then((result) => {
         setImmediate(() =>
           this.set(key, this.serialize(result))
