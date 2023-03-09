@@ -202,9 +202,32 @@ describe('FastCache', () => {
     });
   });
 
-  describe.skip('withCache', () => {
-    test('should be tested', (done) => {
-      done();
+  describe('withCache', () => {
+    test('should be set after next tick', (done) => {
+      const a = { foo: 100 };
+      cache.withCache('foo', () => {
+        return new Promise((resolve) => {
+          resolve(a);
+        });
+      });
+      setTimeout(async () => {
+        const foo = await cache.get('foo');
+        expect(foo).toEqual(JSON.stringify(a));
+        done();
+      }, 10);
+    });
+    test('should be failed to verify for wrong value', (done) => {
+      const b = { bar: 100 };
+      cache.withCache('foo', () => {
+        return new Promise((resolve) => {
+          resolve(b);
+        });
+      });
+      setTimeout(() => {
+        const foo = cache.get('foo');
+        expect(foo).not.toEqual('wrong string');
+        done();
+      }, 10);
     });
   });
 

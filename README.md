@@ -33,6 +33,26 @@ await map.get('one');
 await map.getAll(['one', 'two']);
 // [ first, second ]
 ```
+## withCache in real world
+
+checkout example.ts
+
+```js
+function getDataByIdWithCache(id) {
+  return this.cacheService.withCache(`course@${id}`, () => {
+    return this.getDataById(id);
+  });
+}
+
+async function getDataById(id) {
+  const course = await this.redstoneDataService.getDataById(id);
+  if (!course || !course.id) {
+    logger.warn('unavailable course requested %s', id);
+    return {};
+  }
+  return course;
+}
+```
 
 ## Contributing
 
