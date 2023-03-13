@@ -42,6 +42,7 @@ export interface SetOperations {
   length(): Promise<number>;
 }
 
+// todo: rename fastCache to redisCache
 export class FastCache {
   static create(opts?: FastCacheOpts): FastCache {
     return new FastCache(opts);

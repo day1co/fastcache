@@ -1,2 +1,4 @@
-export { FastCache } from './FastCache';
-export { LocalCache } from './LocalCache';
+import { FastCache } from './FastCache';
+import { InMemoryCache } from './InMemoryCache';
+
+export { InMemoryCache, FastCache, FastCache as RedisCache };

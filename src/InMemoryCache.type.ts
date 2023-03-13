@@ -1,4 +1,4 @@
-export interface LocalCacheConstructor {
+export interface InMemoryCacheConstructor {
   ttlInSec: number;
 }
 
