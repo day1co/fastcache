@@ -1,12 +1,12 @@
 import { setTimeout } from 'node:timers/promises';
 
-import { LocalCache } from './LocalCache';
+import { InMemoryCache } from './InMemoryCache';
 
 describe('LocalCache', () => {
-  let localCache: LocalCache;
+  let localCache: InMemoryCache;
 
   beforeEach(() => {
-    localCache = new LocalCache({ ttlInSec: 1 });
+    localCache = new InMemoryCache({ ttlInSec: 1 });
   });
 
   describe('withCache', () => {
@@ -24,7 +24,7 @@ describe('LocalCache', () => {
 
       await setTimeout(10);
 
-      const snipping = LocalCache.snip(localCache);
+      const snipping = InMemoryCache.snip(localCache);
 
       expect(snipping).toHaveProperty('hitCount');
       expect(snipping.hitCount).toEqual(1);
@@ -51,7 +51,7 @@ describe('LocalCache', () => {
 
       await setTimeout(10);
 
-      const snipping = LocalCache.snip(localCache);
+      const snipping = InMemoryCache.snip(localCache);
 
       expect(snipping).toHaveProperty('hitCount');
       expect(snipping).toHaveProperty('itemCount');

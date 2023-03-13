@@ -1,17 +1,17 @@
-import { isFunction, isPromised, LocalCacheConstructor } from './LocalCache.type';
+import { isFunction, isPromised, InMemoryCacheConstructor } from './InMemoryCache.type';
 
 type StorageOpts = {
   hit: number;
 };
 
-export class LocalCache {
+export class InMemoryCache {
   private readonly storage: Map<string, unknown>;
   private readonly storageOpts: Map<string, StorageOpts>;
   private readonly ttlInSec: number;
   public totalHit: number;
   public hitCarry: number;
 
-  constructor(opts: LocalCacheConstructor = { ttlInSec: 60 }) {
+  constructor(opts: InMemoryCacheConstructor = { ttlInSec: 60 }) {
     this.storage = new Map();
     this.storageOpts = new Map();
     this.ttlInSec = opts.ttlInSec;
@@ -98,7 +98,7 @@ export class LocalCache {
     });
   }
 
-  static snip(cache: LocalCache) {
+  static snip(cache: InMemoryCache) {
     return {
       hitCount: cache.totalHit,
       carryCount: cache.hitCarry,
