@@ -5,6 +5,7 @@ export {
   FastCache,
   FastCache as RedisCache,
   FastCacheOpts,
+  FastCacheOpts as RedisCacheOpts,
   InMemoryCache,
   ListOperations,
   MapOperations,
