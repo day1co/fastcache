@@ -190,7 +190,7 @@ export class FastCache {
       .then((result) => {
         setImmediate(() =>
           this.set(key, this.serialize(result))
-            .then(() => this.logger.debug('set ok: %o', result))
+            .then(() => this.logger.debug('key set ok: %s', key))
             .catch((err) => this.logger.error('set error: %o', err))
         );
         return result;
