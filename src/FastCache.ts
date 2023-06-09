@@ -104,14 +104,16 @@ export class FastCache {
       await this.client.flushdb('ASYNC');
       return;
     }
-    // XXX: partial flush
-    let [cursor, keys] = await this.client.scan('0', 'MATCH', pattern, 'COUNT', 50);
-    while (cursor !== '0') {
+
+    let cursor = '0';
+    let keys: string[] = [];
+
+    do {
+      [cursor, keys] = await this.client.scan('0', 'MATCH', pattern, 'COUNT', 50);
       if (keys && keys.length) {
         await this.client.unlink(keys);
       }
-      [cursor, keys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 50);
-    }
+    } while (cursor !== '0');
   }
 
   //---------------------------------------------------------

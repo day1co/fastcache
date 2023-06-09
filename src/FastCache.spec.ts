@@ -241,4 +241,33 @@ describe('FastCache', () => {
       }
     });
   });
+
+  describe('flush', () => {
+    test('unlink every key over 50 count', (done) => {
+      const testKeys: string[] = [];
+      for (let i = 0; i < 60; i++) {
+        testKeys.push(`test${i}`);
+        client.set(`test${i}`, 'hello');
+      }
+      cache.flush('test*').then(() => {
+        cache.getAll(testKeys).then((values) => {
+          expect(values.every((value) => value === null)).toEqual(true);
+          done();
+        });
+      });
+    });
+    test('unlink every key within 50 count', (done) => {
+      const testKeys: string[] = [];
+      for (let i = 0; i < 10; i++) {
+        testKeys.push(`test${i}`);
+        client.set(`test${i}`, 'hello');
+      }
+      cache.flush('test*').then(() => {
+        cache.getAll(testKeys).then((values) => {
+          expect(values.every((value) => value === null)).toEqual(true);
+          done();
+        });
+      });
+    });
+  });
 });
