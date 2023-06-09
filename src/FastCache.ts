@@ -99,8 +99,8 @@ export class FastCache {
     await this.client.del(keys);
   }
 
-  public async flush(pattern = '*'): Promise<void> {
-    if (pattern === '*') {
+  public async flush(pattern: string): Promise<void> {
+    if (pattern === '*******') {
       await this.client.flushdb('ASYNC');
       return;
     }
