@@ -243,27 +243,31 @@ describe('FastCache', () => {
   });
 
   describe('flush', () => {
-    test('unlink every key over 50 count', (done) => {
-      const testKeys: string[] = [];
+    const test1Keys: string[] = [];
+    const test2Keys: string[] = [];
+
+    beforeAll(async () => {
       for (let i = 0; i < 60; i++) {
-        testKeys.push(`test${i}`);
-        client.set(`test${i}`, 'hello');
+        test1Keys.push(`test1${i}`);
+        await client.set(`test1${i}`, 'hello');
       }
-      cache.flush('test*').then(() => {
-        cache.getAll(testKeys).then((values) => {
+      for (let i = 0; i < 10; i++) {
+        test2Keys.push(`test2${i}`);
+        await client.set(`test2${i}`, 'hello');
+      }
+    });
+
+    test('unlink every key over 50 count', (done) => {
+      cache.flush('test1*').then(() => {
+        cache.getAll(test1Keys).then((values) => {
           expect(values.every((value) => value === null)).toEqual(true);
           done();
         });
       });
     });
     test('unlink every key within 50 count', (done) => {
-      const testKeys: string[] = [];
-      for (let i = 0; i < 10; i++) {
-        testKeys.push(`test${i}`);
-        client.set(`test${i}`, 'hello');
-      }
-      cache.flush('test*').then(() => {
-        cache.getAll(testKeys).then((values) => {
+      cache.flush('test2*').then(() => {
+        cache.getAll(test2Keys).then((values) => {
           expect(values.every((value) => value === null)).toEqual(true);
           done();
         });
