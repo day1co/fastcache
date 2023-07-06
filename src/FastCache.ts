@@ -109,7 +109,8 @@ export class FastCache {
     let keys: string[] = [];
 
     do {
-      [cursor, keys] = await this.client.scan('0', 'MATCH', pattern, 'COUNT', 50);
+      [cursor, keys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', '50');
+
       if (keys && keys.length) {
         await this.client.unlink(keys);
       }
