@@ -49,7 +49,8 @@ export class InMemoryCache {
             return;
           })
           .catch((reason) => {
-            console.log(51, reason);
+            // eslint-disable-next-line no-console
+            console.error(51, reason);
             throw new Error(reason);
           });
       }
