@@ -34,10 +34,10 @@ export class InMemoryCache {
     // throw new Error(`no key provided or cache item exist: ${key}`);
   }
 
-  setCache(key: string, data: unknown): void {
+  setCache(key: string, data: unknown, ex?: number): void {
     setTimeout(() => {
       this.clearCache(key);
-    }, 1000 * this.ttlInSec);
+    }, 1000 * (ex ?? this.ttlInSec));
 
     if (isFunction(data)) {
       const result = data.apply(null);
