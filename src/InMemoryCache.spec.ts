@@ -152,5 +152,14 @@ describe('LocalCache', () => {
       const data = localCache.getCache('foo');
       expect(data).toEqual({ foo: 'async function' });
     });
+
+    it('should not exist cache that invalidated after 1 sec. use set expire time', async () => {
+      localCache.setCache('foo', { foo: 123 }, 1);
+
+      await setTimeout(1100);
+
+      const data = localCache.getCache('foo');
+      expect(data).toBeUndefined();
+    });
   });
 });
