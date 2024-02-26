@@ -35,9 +35,12 @@ export class InMemoryCache {
   }
 
   setCache(key: string, data: unknown, ex?: number): void {
-    setTimeout(() => {
-      this.clearCache(key);
-    }, 1000 * (ex ?? this.ttlInSec));
+    setTimeout(
+      () => {
+        this.clearCache(key);
+      },
+      1000 * (ex ?? this.ttlInSec)
+    );
 
     if (isFunction(data)) {
       const result = data.apply(null);
@@ -61,7 +64,7 @@ export class InMemoryCache {
     this.saveItem(key, data);
   }
 
-  // should go has check before use it.
+  // should go has checked before use it.
   // therefore, it uses withCache wrapper commonly
   getCache(key: string): unknown {
     process.nextTick(() => {
