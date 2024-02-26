@@ -14,6 +14,7 @@ describe('LocalCache', () => {
       const fetchSomething = async () => {
         return { foo: 'async function' };
       };
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _pass_ = localCache.withCache('foo', fetchSomething);
 
       await setTimeout(10);
@@ -34,19 +35,24 @@ describe('LocalCache', () => {
       const fetchSomething = async () => {
         return { foo: 'async function' };
       };
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _firstCall_ = localCache.withCache('foo', fetchSomething);
 
       await setTimeout(10);
 
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _secondCall_ = localCache.withCache('foo', fetchSomething);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _thirdCall_ = localCache.withCache('foo', fetchSomething);
 
       await setTimeout(10);
 
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _anotherCall_ = localCache.withCache('bar', fetchSomething);
 
       await setTimeout(10);
 
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _anotherCallLater_ = localCache.withCache('bar', fetchSomething);
 
       await setTimeout(10);
@@ -107,6 +113,7 @@ describe('LocalCache', () => {
 
     it('should return cache value from function in promised', async () => {
       const soFar = () => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         return new Promise((resolve, reject) => {
           resolve({ foo: 'promised function' });
         });
