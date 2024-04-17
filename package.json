@@ -1,6 +1,6 @@
 {
   "name": "@day1co/fastcache",
-  "version": "3.3.3",
+  "version": "3.3.4",
   "description": "fast and simple cache using redis",
   "url": "https://github.com/day1co/fastcache",
   "repository": "https://github.com/day1co/fastcache",
