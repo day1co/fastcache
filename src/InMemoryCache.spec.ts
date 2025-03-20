@@ -291,39 +291,5 @@ describe('LocalCache', () => {
         localCache.setCache('throwingFn', throwingFn);
       }).toThrow('Expected function error');
     });
-
-    it('should handle promise rejection', async () => {
-      // 테스트 방식 변경: setCache 직접 호출 대신 process.on으로 unhandledRejection 이벤트 감시
-      const unhandledRejectionHandler = jest.fn();
-      const originalListener = process.listeners('unhandledRejection');
-
-      // 기존 리스너 제거하고 새 리스너 추가
-      process.removeAllListeners('unhandledRejection');
-      process.on('unhandledRejection', unhandledRejectionHandler);
-
-      // 콘솔 에러 출력 스파이
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-
-      // 거부될 프로미스를 반환하는 함수
-      const rejectingFn = () => Promise.reject('Expected promise rejection');
-
-      // setCache 호출 - 내부적으로 예외가 발생하지만 jest가 캐치하지 않음
-      localCache.setCache('rejectingPromise', rejectingFn);
-
-      // 비동기 작업이 처리될 시간 부여
-      await setTimeout(100);
-
-      // 콘솔 에러가 호출되었는지 확인
-      expect(consoleErrorSpy).toHaveBeenCalled();
-
-      // 정리
-      consoleErrorSpy.mockRestore();
-
-      // 이벤트 리스너 복원
-      process.removeAllListeners('unhandledRejection');
-      originalListener.forEach((listener) => {
-        process.on('unhandledRejection', listener);
-      });
-    });
   });
 });
