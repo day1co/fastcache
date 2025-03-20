@@ -169,4 +169,138 @@ describe('LocalCache', () => {
       expect(data).toBeUndefined();
     });
   });
+
+  // Boundary value tests and overflow tests
+  describe('boundary and overflow tests', () => {
+    it('should handle zero TTL value', async () => {
+      const zeroTtlCache = new InMemoryCache({ ttlInSec: 0 });
+      zeroTtlCache.setCache('foo', { foo: 123 });
+
+      // Data should be immediately invalidated with zero TTL
+      await setTimeout(10);
+
+      const data = zeroTtlCache.getCache('foo');
+      expect(data).toBeUndefined();
+    });
+
+    it('should handle negative TTL value by treating it as zero', async () => {
+      const negativeTtlCache = new InMemoryCache({ ttlInSec: -1 });
+      negativeTtlCache.setCache('foo', { foo: 123 });
+
+      // Data should be immediately invalidated with negative TTL
+      await setTimeout(10);
+
+      const data = negativeTtlCache.getCache('foo');
+      expect(data).toBeUndefined();
+    });
+
+    it('should handle extremely large TTL value', async () => {
+      const largeTtlCache = new InMemoryCache({ ttlInSec: Number.MAX_SAFE_INTEGER });
+      largeTtlCache.setCache('foo', { foo: 123 });
+
+      await setTimeout(10);
+
+      const data = largeTtlCache.getCache('foo');
+      expect(data).toEqual({ foo: 123 });
+    });
+
+    it('should correctly handle hit counter overflow', async () => {
+      const hitOverflowCache = new InMemoryCache({ ttlInSec: 10 });
+      hitOverflowCache.setCache('foo', { foo: 123 });
+
+      // Manually set values close to MAX_VALUE to test overflow handling
+      hitOverflowCache.totalHit = Number.MAX_VALUE - 1;
+
+      // Get cache to increment hit counter
+      hitOverflowCache.getCache('foo');
+
+      // Ensure counter reset and carry incremented
+      expect(hitOverflowCache.totalHit).toBe(0);
+      expect(hitOverflowCache.hitCarry).toBe(1);
+    });
+
+    it('should handle very long keys', async () => {
+      const longKey = 'a'.repeat(1000000); // 1 million chars
+      localCache.setCache(longKey, { value: 'test' });
+
+      await setTimeout(10);
+
+      const data = localCache.getCache(longKey);
+      expect(data).toEqual({ value: 'test' });
+    });
+
+    it('should handle storing very large objects', async () => {
+      // Create large object with deep nesting
+      const generateLargeObject = (depth: number, breadth: number): any => {
+        if (depth <= 0) {
+          return 'leaf';
+        }
+
+        const obj: Record<string, any> = {};
+        for (let i = 0; i < breadth; i++) {
+          obj[`key${i}`] = generateLargeObject(depth - 1, breadth);
+        }
+        return obj;
+      };
+
+      const largeObject = generateLargeObject(10, 5);
+      localCache.setCache('largeObj', largeObject);
+
+      await setTimeout(10);
+
+      const data = localCache.getCache('largeObj');
+      expect(data).toEqual(largeObject);
+    });
+
+    it('should handle circular references gracefully', async () => {
+      const circularObj: any = { value: 1 };
+      circularObj.self = circularObj; // Create circular reference
+
+      expect(() => {
+        localCache.setCache('circularObj', circularObj);
+      }).not.toThrow();
+    });
+
+    it('should handle multiple rapid cache operations', async () => {
+      // Perform lots of operations in quick succession
+      for (let i = 0; i < 1000; i++) {
+        localCache.setCache(`key${i}`, { value: i });
+      }
+
+      // Validate some random values
+      for (let i = 100; i < 110; i++) {
+        expect(localCache.getCache(`key${i}`)).toEqual({ value: i });
+      }
+
+      // Validate cache size
+      expect(InMemoryCache.snip(localCache).itemCount).toBe(1000);
+    });
+
+    it('should handle function that throws exception', async () => {
+      const throwingFn = () => {
+        throw new Error('Expected function error');
+      };
+
+      expect(() => {
+        localCache.setCache('throwingFn', throwingFn);
+      }).toThrow('Expected function error');
+    });
+
+    it('should handle promise rejection', async () => {
+      const rejectingFn = () => {
+        return Promise.reject('Expected promise rejection');
+      };
+
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      // This test verifies that rejected promises are handled
+      localCache.setCache('rejectingPromise', rejectingFn);
+
+      await setTimeout(50); // Give time for promise to reject
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+    });
+  });
 });
