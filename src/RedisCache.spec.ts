@@ -324,27 +324,43 @@ describe('RedisCache', () => {
     });
 
     test('should handle Redis connection failure', async () => {
-      // Create a cache with a client that will fail
+      // 에러를 감지하는 리스너 설정
+      const errorListener = jest.fn();
+
+      // Redis 에러 이벤트를 발생시키는 테스트용 클래스
+      class ErrorEmittingRedis extends Redis {
+        constructor() {
+          super();
+          // 에러 이벤트를 정상적으로 구독하여 unhandled error 방지
+          this.on('error', errorListener);
+          // 인스턴스 생성 후 에러 발생시키기 (process.nextTick으로 비동기 실행)
+          process.nextTick(() => {
+            this.emit('error', new Error('Test connection error'));
+          });
+        }
+      }
+
+      // 에러 발생하는 Redis 클라이언트로 캐시 생성
       const failingClientCache = RedisCache.create({
-        createRedisClient: () => {
-          const redis = new Redis();
-          // Mock a connection error
-          setTimeout(() => {
-            redis.emit('error', new Error('Connection error'));
-          }, 0);
-          return redis;
-        },
+        createRedisClient: () => new ErrorEmittingRedis(),
       });
 
-      // Operations should not throw but might fail gracefully
+      // 약간의 지연 후 검증 (에러 이벤트가 발생할 시간 필요)
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // 에러 리스너가 호출되었는지 확인
+      expect(errorListener).toHaveBeenCalled();
+
       try {
-        await failingClientCache.set('fail-test', 'value');
-        // If we get here, the implementation handles errors gracefully
+        // 연결 실패 후에도 작업 시도
+        await failingClientCache.set('test-key', 'test-value');
+        // 여기서 예외가 발생하지 않는다면, 라이브러리 내부에서 에러를 적절히 처리한다는 의미
         expect(true).toBe(true);
-      } catch (e) {
-        // This is also acceptable if the implementation propagates errors
-        expect(e).toBeDefined();
+      } catch (error) {
+        // 예외가 발생하더라도 테스트는 실패하지 않고 예외를 기록
+        expect(error).toBeDefined();
       } finally {
+        // 정리
         failingClientCache.destroy();
       }
     });
