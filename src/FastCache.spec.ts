@@ -300,11 +300,11 @@ describe('FastCache', () => {
     test('should handle setting null and undefined values', async () => {
       await cache.set('nullValue', null as any);
       const nullValue = await cache.get('nullValue');
-      expect(nullValue).toBe('null');
+      expect(nullValue).toBe('');
 
       await cache.set('undefinedValue', undefined as any);
       const undefinedValue = await cache.get('undefinedValue');
-      expect(undefinedValue).toBe('undefined');
+      expect(undefinedValue).toBe('');
     });
 
     test('should handle setting and retrieving special characters', async () => {

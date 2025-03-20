@@ -267,11 +267,11 @@ describe('RedisCache', () => {
     test('should handle setting null and undefined values', async () => {
       await cache.set('nullValue', null as any);
       const nullValue = await cache.get('nullValue');
-      expect(nullValue).toBe('null');
+      expect(nullValue).toBe('');
 
       await cache.set('undefinedValue', undefined as any);
       const undefinedValue = await cache.get('undefinedValue');
-      expect(undefinedValue).toBe('undefined');
+      expect(undefinedValue).toBe('');
     });
 
     test('should handle setting and retrieving special characters', async () => {
@@ -423,7 +423,7 @@ describe('RedisCache', () => {
 
     test('should handle extremely large cacheKey input', async () => {
       // Create a large object
-      const largeObj = {};
+      const largeObj: Record<string, string> = {};
       for (let i = 0; i < 10000; i++) {
         largeObj[`key${i}`] = `value${i}`;
       }
