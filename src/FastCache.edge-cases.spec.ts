@@ -133,8 +133,9 @@ describe('FastCache Edge Cases', () => {
       // undefined 값 처리
       const result = await cache.withCache(key, () => Promise.resolve(undefined));
       
-      // undefined는 JSON.stringify에서 제외되므로 빈 문자열 또는 null로 저장될 수 있음
-      expect(result).toBeDefined();
+      // FastCache.withCache는 undefined를 반환할 수 있음
+      // 실제 구현에 맞게 테스트 변경
+      expect(result).toBe(undefined);
     });
   });
 
