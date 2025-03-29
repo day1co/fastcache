@@ -19,11 +19,11 @@ describe('FastCache Edge Cases', () => {
   beforeEach(async () => {
     // 실제 Redis에 연결
     client = new Redis(REDIS_CONFIG);
-    cache = FastCache.create({ 
+    cache = FastCache.create({
       redis: REDIS_CONFIG,
-      prefix: TEST_KEY_PREFIX 
+      prefix: TEST_KEY_PREFIX,
     });
-    
+
     // 테스트 전 모든 테스트 관련 키 삭제 (테스트 DB의 모든 키)
     await client.flushdb();
   });
@@ -31,7 +31,7 @@ describe('FastCache Edge Cases', () => {
   afterEach(async () => {
     // 테스트 후 정리
     await client.flushdb();
-    
+
     // 연결 종료
     cache.destroy();
     await client.quit();
@@ -69,11 +69,11 @@ describe('FastCache Edge Cases', () => {
   describe('concurrent requests for same cache miss', () => {
     test('should handle concurrent requests for same cache miss', async () => {
       const key = 'missing-key';
-      let executionCount = 0;
+      // let executionCount = 0;
 
       // withCache를 이용한 동시 요청 시뮬레이션
       const executor = () => {
-        executionCount++;
+        // executionCount++;
         return Promise.resolve('calculated-value');
       };
 
@@ -182,13 +182,13 @@ describe('FastCache Edge Cases', () => {
     test('should properly release resources on destroy', async () => {
       // 캐시 사용
       await cache.set('test-key', 'test-value');
-      
+
       // 리소스 정리 전에 연결 확인
       expect(cache.isConnected()).toBe(true);
-      
+
       // 리소스 정리
       cache.destroy();
-      
+
       // Redis 클라이언트의 상태는 더 이상 'ready'가 아니어야 함
       expect(cache.isConnected()).toBe(false);
     });
@@ -204,19 +204,16 @@ describe('FastCache Edge Cases', () => {
 
       expect(results).toEqual(['value1', 'value2']);
     });
-    
+
     test('should handle multi commands properly', async () => {
       // 실제 Redis 환경에서 멀티 커맨드 테스트
       const multi = client.multi();
       multi.set(`${TEST_KEY_PREFIX}multi1`, 'value1');
       multi.set(`${TEST_KEY_PREFIX}multi2`, 'value2');
       await multi.exec();
-      
-      const results = await Promise.all([
-        cache.get('multi1'),
-        cache.get('multi2')
-      ]);
-      
+
+      const results = await Promise.all([cache.get('multi1'), cache.get('multi2')]);
+
       expect(results).toEqual(['value1', 'value2']);
     });
   });
@@ -225,26 +222,26 @@ describe('FastCache Edge Cases', () => {
   describe('redis reconnection', () => {
     test('should handle reconnection properly', async () => {
       // 테스트를 위한 새 캐시 인스턴스 생성
-      const testCache = FastCache.create({ 
+      const testCache = FastCache.create({
         redis: REDIS_CONFIG,
-        prefix: TEST_KEY_PREFIX
+        prefix: TEST_KEY_PREFIX,
       });
-      
+
       // 테스트 데이터 설정
       await testCache.set('reconnect-key', 'before-reconnect');
-      
+
       // 연결 강제 종료 및 재연결 시뮬레이션
       const redisClient = (testCache as any).client;
       await redisClient.disconnect();
-      
+
       // 재연결은 보통 자동으로 수행됨 (ioredis의 자동 재연결 기능)
       // 약간의 지연 후 재연결 확인
       await new Promise((resolve) => setTimeout(resolve, 100));
-      
+
       // 여전히 데이터에 접근 가능한지 확인
       const result = await testCache.get('reconnect-key');
       expect(result).toBe('before-reconnect');
-      
+
       // 정리
       testCache.destroy();
     });
