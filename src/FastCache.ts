@@ -135,18 +135,18 @@ export class FastCache {
   }
 
   public async getAll(keys: Array<string>): Promise<Array<string | null>> {
-    const fullKeys = keys.map(key => this.getKeyWithPrefix(key));
+    const fullKeys = keys.map((key) => this.getKeyWithPrefix(key));
     return this.client.mget(fullKeys);
   }
 
   public async removeAll(keys: Array<string>): Promise<void> {
-    const fullKeys = keys.map(key => this.getKeyWithPrefix(key));
+    const fullKeys = keys.map((key) => this.getKeyWithPrefix(key));
     await this.client.del(fullKeys);
   }
 
   public async flush(pattern: string): Promise<void> {
     const fullPattern = this.getKeyWithPrefix(pattern);
-    
+
     if (pattern === '*******') {
       await this.client.flushdb('ASYNC');
       return;
@@ -169,7 +169,7 @@ export class FastCache {
 
   public list(key: string): ListOperations {
     const fullKey = this.getKeyWithPrefix(key);
-    
+
     return {
       key: fullKey,
       push: async (value: string): Promise<void> => {
@@ -196,7 +196,7 @@ export class FastCache {
 
   map(key: string): MapOperations {
     const fullKey = this.getKeyWithPrefix(key);
-    
+
     return {
       key: fullKey,
       set: async (field: string, value: string): Promise<void> => {
@@ -221,7 +221,7 @@ export class FastCache {
 
   setOf(key: string): SetOperations {
     const fullKey = this.getKeyWithPrefix(key);
-    
+
     return {
       key: fullKey,
       add: async (...values: Array<string>) => {
@@ -240,14 +240,15 @@ export class FastCache {
   public async withCache(key: string, executor: () => Promise<unknown>): Promise<unknown> {
     const fullKey = this.getKeyWithPrefix(key);
     const cached = await this.client.get(fullKey);
-    
+
     if (cached) {
       return this.deserialize(cached);
     }
     return executor()
       .then((result) => {
         setImmediate(() =>
-          this.client.set(fullKey, this.serialize(result), 'EX', this.ttl)
+          this.client
+            .set(fullKey, this.serialize(result), 'EX', this.ttl)
             .then(() => this.logger.debug('key set ok: %s', fullKey))
             .catch((err) => this.logger.error('set error: %o', err))
         );
@@ -255,7 +256,8 @@ export class FastCache {
       })
       .catch((err) => {
         setImmediate(() =>
-          this.client.del(fullKey)
+          this.client
+            .del(fullKey)
             .then(() => this.logger.debug('key removed ok: %s', fullKey))
             .catch((err) => this.logger.error('set error: %o', err))
         );
@@ -286,7 +288,7 @@ export class FastCache {
       return null;
     }
   }
-  
+
   private getKeyWithPrefix(key: string): string {
     return this.prefix ? `${this.prefix}${key}` : key;
   }
