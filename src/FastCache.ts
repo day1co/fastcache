@@ -1,8 +1,34 @@
 import { createHash } from 'crypto';
 import { Redis, RedisOptions } from 'ioredis';
 import IORedis from 'ioredis';
-import { LoggerFactory } from '@day1co/pebbles';
-import type { Logger } from '@day1co/pebbles';
+
+// 간단한 로거 인터페이스 구현
+interface Logger {
+  debug(message: string, ...args: any[]): void;
+  info(message: string, ...args: any[]): void;
+  warn(message: string, ...args: any[]): void;
+  error(message: string, ...args: any[]): void;
+}
+
+// LoggerFactory 구현 (noop 로거)
+class LoggerFactory {
+  static getLogger(_name: string): Logger {
+    return {
+      debug(_message: string, ..._args: any[]): void {
+        // noop
+      },
+      info(_message: string, ..._args: any[]): void {
+        // noop
+      },
+      warn(_message: string, ..._args: any[]): void {
+        // noop
+      },
+      error(_message: string, ..._args: any[]): void {
+        // noop
+      },
+    };
+  }
+}
 
 export interface FastCacheOpts {
   prefix?: string;
@@ -217,7 +243,7 @@ export class FastCache {
   private serialize(o: any): string {
     try {
       return JSON.stringify(o);
-    } catch (e) {
+    } catch (_e) {
       // TODO: better error handling
       return '';
     }
@@ -226,7 +252,7 @@ export class FastCache {
   private deserialize(s: string): any {
     try {
       return JSON.parse(s);
-    } catch (e) {
+    } catch (_e) {
       // TODO: better error handling
       return null;
     }
