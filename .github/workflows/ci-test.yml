@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: "! contains(toJSON(github.event.pull_request.labels.*.name), 'ci-skip')"
+    if: ${{ !contains(toJSON(github.event.pull_request.labels.*.name), 'ci-skip') }}
     timeout-minutes: 10
 
     steps:
