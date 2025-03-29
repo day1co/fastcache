@@ -22,10 +22,10 @@ describe('FastCache Edge Cases', () => {
       // 특수 문자가 포함된 키
       const specialKey = 'test:key@with#special$characters';
       const value = 'test-value';
-      
+
       await cache.set(specialKey, value);
       const result = await cache.get(specialKey);
-      
+
       expect(result).toBe(value);
     });
   });
@@ -36,10 +36,10 @@ describe('FastCache Edge Cases', () => {
       // 큰 문자열 생성 (약 1MB)
       const largeData = 'x'.repeat(1024 * 1024);
       const key = 'large-data-key';
-      
+
       await cache.set(key, largeData);
       const result = await cache.get(key);
-      
+
       expect(result).toBe(largeData);
     });
   });
@@ -49,26 +49,22 @@ describe('FastCache Edge Cases', () => {
     test('should handle concurrent requests for same cache miss', async () => {
       const key = 'missing-key';
       // let executionCount = 0; // 미사용 변수 주석 처리
-      
+
       // withCache를 이용한 동시 요청 시뮬레이션
       const executor = () => {
         // executionCount++;
         return Promise.resolve('calculated-value');
       };
-      
+
       // 3개의 동일한 캐시 요청을 병렬로 실행
-      const promises = [
-        cache.withCache(key, executor),
-        cache.withCache(key, executor),
-        cache.withCache(key, executor)
-      ];
-      
+      const promises = [cache.withCache(key, executor), cache.withCache(key, executor), cache.withCache(key, executor)];
+
       const results = await Promise.all(promises);
-      
+
       // 모든 결과가 동일한지 확인
       expect(results[0]).toEqual(results[1]);
       expect(results[1]).toEqual(results[2]);
-      
+
       // executor 함수는 한 번만 실행되어야 함 (중복 계산 방지)
       // Note: 실제 Redis에서는 이 부분이 다를 수 있으므로 MockRedis 환경에서는 테스트가 실패할 수 있음
       // expect(executionCount).toBe(1);
@@ -80,17 +76,17 @@ describe('FastCache Edge Cases', () => {
     test('should expire keys after TTL', async () => {
       const key = 'expiring-key';
       const value = 'expiring-value';
-      
+
       // 1초 TTL로 설정
       await cache.set(key, value, 1);
-      
+
       // 바로 조회하면 값이 있어야 함
       const immediate = await cache.get(key);
       expect(immediate).toBe(value);
-      
+
       // 2초 후에는 만료되어야 함
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      
+
       const afterExpiration = await cache.get(key);
       expect(afterExpiration).toBeNull();
     }, 5000); // 테스트 타임아웃 증가
@@ -105,13 +101,13 @@ describe('FastCache Edge Cases', () => {
         key2: 'value2',
         key3: 'value3',
       };
-      
+
       await cache.setAll(keyValues);
-      
+
       // 모든 키가 설정되었는지 확인
       const keys = Object.keys(keyValues);
       const values = await cache.getAll(keys);
-      
+
       expect(values).toEqual(Object.values(keyValues));
     });
   });
@@ -122,17 +118,17 @@ describe('FastCache Edge Cases', () => {
       const key = 'circular-ref';
       const obj: any = { name: 'test' };
       obj.self = obj; // 순환 참조 생성
-      
+
       // 직렬화 중 오류가 발생해야 하지만 애플리케이션은 크래시되지 않아야 함
       await expect(cache.withCache(key, () => Promise.resolve(obj))).resolves.toBeDefined();
     });
-    
+
     test('should handle undefined values properly', async () => {
       const key = 'undefined-value';
-      
+
       // undefined 값 처리
       const result = await cache.withCache(key, () => Promise.resolve(undefined));
-      
+
       // FastCache.withCache는 undefined를 반환할 수 있음
       // 실제 구현에 맞게 테스트 변경
       expect(result).toBe(undefined);
@@ -144,18 +140,18 @@ describe('FastCache Edge Cases', () => {
     test('should return value even if caching fails', async () => {
       const key = 'error-key';
       const expectedValue = 'original-data';
-      
+
       // Redis 연결 끊김 시뮬레이션 (jest.fn() 대신 직접 모킹)
       const originalMethod = client.set;
-      client.set = function() {
+      client.set = function () {
         return Promise.reject(new Error('Redis connection error'));
       } as any;
-      
+
       // withCache는 Redis 실패해도 원래 값은 반환해야 함
       const result = await cache.withCache(key, () => Promise.resolve(expectedValue));
-      
+
       expect(result).toBe(expectedValue);
-      
+
       // 원래 메서드로 복원
       client.set = originalMethod;
     });
@@ -166,10 +162,10 @@ describe('FastCache Edge Cases', () => {
     test('should properly release resources on destroy', async () => {
       // 캐시 사용
       await cache.set('test-key', 'test-value');
-      
+
       // 리소스 정리
       cache.destroy();
-      
+
       // 이후 작업 시도 시 오류 발생 가능 (구현에 따라 다름)
       // 이 테스트는 실제로 리소스 누수 여부를 확인하지는 않지만
       // destroy 메소드가 호출된 후에도 정상적으로 프로세스가 종료되는지 확인
@@ -182,16 +178,10 @@ describe('FastCache Edge Cases', () => {
     test('should handle pipeline operations properly', async () => {
       // 파이프라인 작업을 시뮬레이션
       // 실제 Redis에서는 client.multi() 등을 사용해야 함
-      await Promise.all([
-        cache.set('tx-key1', 'value1'),
-        cache.set('tx-key2', 'value2')
-      ]);
-      
-      const results = await Promise.all([
-        cache.get('tx-key1'),
-        cache.get('tx-key2')
-      ]);
-      
+      await Promise.all([cache.set('tx-key1', 'value1'), cache.set('tx-key2', 'value2')]);
+
+      const results = await Promise.all([cache.get('tx-key1'), cache.get('tx-key2')]);
+
       expect(results).toEqual(['value1', 'value2']);
     });
   });
@@ -201,20 +191,20 @@ describe('FastCache Edge Cases', () => {
     test('should reconnect after redis restart', async () => {
       // 실제 Redis 서버 재시작은 mock으로 테스트하기 어려움
       // 여기서는 Redis 클라이언트 재생성으로 시뮬레이션
-      
+
       // 먼저 값 설정
       await cache.set('restart-key', 'before-restart');
-      
+
       // 클라이언트 재생성 (실제 환경에서는 Redis 서버 재시작과 유사)
       cache.destroy();
       cache = FastCache.create({ createRedisClient: () => new Redis() });
-      
+
       // 이전 값이 유지되는지 확인 (실제 Redis 서버에서는 persistence 설정에 따라 다름)
       const afterRestart = await cache.get('restart-key');
-      
+
       // Mock Redis에서는 메모리에서 실행되므로 값이 유지될 수 있음
       // 실제 Redis 서버에서는 설정에 따라 다를 수 있음
       expect(afterRestart).toBeDefined();
     });
   });
-}); 
+});
