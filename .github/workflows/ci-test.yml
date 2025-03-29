@@ -11,6 +11,20 @@ jobs:
     if: ${{ !contains(toJSON(github.event.pull_request.labels.*.name), 'ci-skip') }}
     timeout-minutes: 10
 
+    # Redis 서비스 컨테이너 추가
+    services:
+      redis:
+        image: redis
+        # 포트 맵핑: 6379:6379
+        ports:
+          - 6379:6379
+        # 서비스 헬스 체크 설정
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v2
       - name: Use Node.js ${{ matrix.node-version }}
@@ -34,3 +48,7 @@ jobs:
         env:
           NODE_ENV: test
           CI: true
+          # Redis 연결 정보 환경 변수 추가
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          REDIS_DB: 1
