@@ -98,18 +98,29 @@ export class FastCache {
     this.client.disconnect();
   }
 
+  /**
+   * 현재 Redis 연결 상태를 확인합니다.
+   * @returns 연결이 활성화되어 있으면 true, 그렇지 않으면 false
+   */
+  public isConnected(): boolean {
+    return this.client.status === 'ready';
+  }
+
   //---------------------------------------------------------
 
   public async set(key: string, value: string, ex?: number): Promise<void> {
-    await this.client.set(key, value, 'EX', ex ?? this.ttl);
+    const fullKey = this.getKeyWithPrefix(key);
+    await this.client.set(fullKey, value, 'EX', ex ?? this.ttl);
   }
 
   public async get(key: string): Promise<string | null> {
-    return this.client.get(key);
+    const fullKey = this.getKeyWithPrefix(key);
+    return this.client.get(fullKey);
   }
 
   public async remove(key: string): Promise<void> {
-    await this.client.del(key);
+    const fullKey = this.getKeyWithPrefix(key);
+    await this.client.del(fullKey);
   }
 
   public async setAll(obj: Record<string, unknown>): Promise<void> {
@@ -117,20 +128,25 @@ export class FastCache {
     // return mset(obj);
     const multi = this.client.multi();
     for (const [key, value] of Object.entries(obj)) {
-      multi.set(key, value as string, 'EX', this.ttl);
+      const fullKey = this.getKeyWithPrefix(key);
+      multi.set(fullKey, value as string, 'EX', this.ttl);
     }
     await multi.exec();
   }
 
   public async getAll(keys: Array<string>): Promise<Array<string | null>> {
-    return this.client.mget(keys);
+    const fullKeys = keys.map(key => this.getKeyWithPrefix(key));
+    return this.client.mget(fullKeys);
   }
 
   public async removeAll(keys: Array<string>): Promise<void> {
-    await this.client.del(keys);
+    const fullKeys = keys.map(key => this.getKeyWithPrefix(key));
+    await this.client.del(fullKeys);
   }
 
   public async flush(pattern: string): Promise<void> {
+    const fullPattern = this.getKeyWithPrefix(pattern);
+    
     if (pattern === '*******') {
       await this.client.flushdb('ASYNC');
       return;
@@ -140,7 +156,7 @@ export class FastCache {
     let keys: string[] = [];
 
     do {
-      [cursor, keys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', '50');
+      [cursor, keys] = await this.client.scan(cursor, 'MATCH', fullPattern, 'COUNT', '50');
 
       if (keys && keys.length) {
         await this.client.unlink(keys);
@@ -152,24 +168,26 @@ export class FastCache {
   // list
 
   public list(key: string): ListOperations {
+    const fullKey = this.getKeyWithPrefix(key);
+    
     return {
-      key,
+      key: fullKey,
       push: async (value: string): Promise<void> => {
-        await this.client.rpush(key, value);
+        await this.client.rpush(fullKey, value);
       },
-      pop: async (): Promise<string | null> => this.client.rpop(key),
+      pop: async (): Promise<string | null> => this.client.rpop(fullKey),
       unshift: async (value: string): Promise<void> => {
-        await this.client.lpush(key, value);
+        await this.client.lpush(fullKey, value);
       },
-      shift: async (): Promise<string | null> => this.client.lpop(key),
+      shift: async (): Promise<string | null> => this.client.lpop(fullKey),
       setAll: async (values: Array<string>): Promise<void> => {
-        await this.client.lpush(key, ...values);
+        await this.client.lpush(fullKey, ...values);
       },
-      getAll: async (start = 0, stop = -1): Promise<Array<string | null>> => this.client.lrange(key, start, stop),
+      getAll: async (start = 0, stop = -1): Promise<Array<string | null>> => this.client.lrange(fullKey, start, stop),
       removeAll: async (start = -1, stop = 0): Promise<void> => {
-        await this.client.ltrim(key, start, stop);
+        await this.client.ltrim(fullKey, start, stop);
       },
-      length: async (): Promise<number> => this.client.llen(key),
+      length: async (): Promise<number> => this.client.llen(fullKey),
     };
   }
 
@@ -177,62 +195,68 @@ export class FastCache {
   // map
 
   map(key: string): MapOperations {
+    const fullKey = this.getKeyWithPrefix(key);
+    
     return {
-      key,
+      key: fullKey,
       set: async (field: string, value: string): Promise<void> => {
-        await this.client.hset(key, field, value);
+        await this.client.hset(fullKey, field, value);
       },
-      get: async (field: string): Promise<string | null> => this.client.hget(key, field),
+      get: async (field: string): Promise<string | null> => this.client.hget(fullKey, field),
       remove: async (field: string): Promise<void> => {
-        await this.client.hdel(key, field);
+        await this.client.hdel(fullKey, field);
       },
       setAll: async (obj: any): Promise<void> => {
-        await this.client.hmset(key, obj);
+        await this.client.hmset(fullKey, obj);
       },
-      getAll: async (fields: Array<string>): Promise<Array<string | null>> => this.client.hmget(key, ...fields),
+      getAll: async (fields: Array<string>): Promise<Array<string | null>> => this.client.hmget(fullKey, ...fields),
       removeAll: async (fields: Array<string>): Promise<void> => {
-        await this.client.hdel(key, ...fields);
+        await this.client.hdel(fullKey, ...fields);
       },
-      length: (): Promise<number> => this.client.hlen(key),
+      length: (): Promise<number> => this.client.hlen(fullKey),
     };
   }
 
   //---------------------------------------------------------
 
   setOf(key: string): SetOperations {
+    const fullKey = this.getKeyWithPrefix(key);
+    
     return {
-      key,
+      key: fullKey,
       add: async (...values: Array<string>) => {
-        await this.client.sadd(key, ...values);
+        await this.client.sadd(fullKey, ...values);
       },
       remove: async (...values: Array<string>) => {
-        await this.client.srem(key, ...values);
+        await this.client.srem(fullKey, ...values);
       },
-      contains: async (value: string): Promise<boolean> => (await this.client.sismember(key, value)) === 1,
-      length: async (): Promise<number> => this.client.scard(key),
+      contains: async (value: string): Promise<boolean> => (await this.client.sismember(fullKey, value)) === 1,
+      length: async (): Promise<number> => this.client.scard(fullKey),
     };
   }
 
   //---------------------------------------------------------
 
   public async withCache(key: string, executor: () => Promise<unknown>): Promise<unknown> {
-    const cached = await this.get(key);
+    const fullKey = this.getKeyWithPrefix(key);
+    const cached = await this.client.get(fullKey);
+    
     if (cached) {
       return this.deserialize(cached);
     }
     return executor()
       .then((result) => {
         setImmediate(() =>
-          this.set(key, this.serialize(result))
-            .then(() => this.logger.debug('key set ok: %s', key))
+          this.client.set(fullKey, this.serialize(result), 'EX', this.ttl)
+            .then(() => this.logger.debug('key set ok: %s', fullKey))
             .catch((err) => this.logger.error('set error: %o', err))
         );
         return result;
       })
       .catch((err) => {
         setImmediate(() =>
-          this.remove(key)
-            .then(() => this.logger.debug('key removed ok: %s', key))
+          this.client.del(fullKey)
+            .then(() => this.logger.debug('key removed ok: %s', fullKey))
             .catch((err) => this.logger.error('set error: %o', err))
         );
         throw err;
@@ -261,5 +285,9 @@ export class FastCache {
       // TODO: better error handling
       return null;
     }
+  }
+  
+  private getKeyWithPrefix(key: string): string {
+    return this.prefix ? `${this.prefix}${key}` : key;
   }
 }
