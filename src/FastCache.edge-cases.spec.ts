@@ -188,9 +188,9 @@ describe('FastCache Edge Cases', () => {
 
       // 리소스 정리
       cache.destroy();
-      
+
       // 약간의 지연을 주어 연결이 완전히 종료되도록 함
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Redis 클라이언트의 상태는 더 이상 'ready'가 아니어야 함
       expect(cache.isConnected()).toBe(false);
@@ -226,12 +226,12 @@ describe('FastCache Edge Cases', () => {
     test('should handle reconnection properly', async () => {
       // 테스트를 위한 새 캐시 인스턴스 생성
       const testCache = FastCache.create({
-        redis: { 
+        redis: {
           ...REDIS_CONFIG,
-          reconnectOnError: () => true,  // 에러 발생 시 재연결 설정
-          retryStrategy: () => 100       // 재시도 전략 추가
+          reconnectOnError: () => true, // 에러 발생 시 재연결 설정
+          retryStrategy: () => 100, // 재시도 전략 추가
         },
-        prefix: TEST_KEY_PREFIX
+        prefix: TEST_KEY_PREFIX,
       });
 
       // 테스트 데이터 설정
@@ -243,7 +243,7 @@ describe('FastCache Edge Cases', () => {
 
       // 재연결을 위해 충분한 시간 대기 (500ms)
       await new Promise((resolve) => setTimeout(resolve, 500));
-      
+
       try {
         // 데이터 접근 시도
         const result = await testCache.get('reconnect-key');
