@@ -250,6 +250,7 @@ describe('FastCache Edge Cases', () => {
         expect(result).toBe('before-reconnect');
       } catch (error) {
         // 연결이 아직 복구되지 않았을 수 있음, 테스트 실패로 간주하지 않음
+        // eslint-disable-next-line no-console
         console.log('Connection not yet restored, skipping assertion');
       } finally {
         // 정리
