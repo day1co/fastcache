@@ -12,17 +12,22 @@ interface Logger {
 
 // LoggerFactory 구현 (noop 로거)
 class LoggerFactory {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   static getLogger(_name: string): Logger {
     return {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       debug(_message: string, ..._args: any[]): void {
         // noop
       },
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       info(_message: string, ..._args: any[]): void {
         // noop
       },
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       warn(_message: string, ..._args: any[]): void {
         // noop
       },
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       error(_message: string, ..._args: any[]): void {
         // noop
       },

@@ -48,11 +48,11 @@ describe('FastCache Edge Cases', () => {
   describe('concurrent requests for same cache miss', () => {
     test('should handle concurrent requests for same cache miss', async () => {
       const key = 'missing-key';
-      let executionCount = 0;
+      // let executionCount = 0; // 미사용 변수 주석 처리
       
       // withCache를 이용한 동시 요청 시뮬레이션
       const executor = () => {
-        executionCount++;
+        // executionCount++;
         return Promise.resolve('calculated-value');
       };
       
@@ -89,7 +89,7 @@ describe('FastCache Edge Cases', () => {
       expect(immediate).toBe(value);
       
       // 2초 후에는 만료되어야 함
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       
       const afterExpiration = await cache.get(key);
       expect(afterExpiration).toBeNull();
@@ -101,9 +101,9 @@ describe('FastCache Edge Cases', () => {
     test('should perform multi-key operations atomically', async () => {
       // 여러 키 동시 설정
       const keyValues = {
-        'key1': 'value1',
-        'key2': 'value2',
-        'key3': 'value3'
+        key1: 'value1',
+        key2: 'value2',
+        key3: 'value3',
       };
       
       await cache.setAll(keyValues);
