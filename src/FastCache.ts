@@ -42,6 +42,39 @@ export interface SetOperations {
   length(): Promise<number>;
 }
 
+export interface SortedSetOperations {
+  key: string;
+  add(score: number, value: string): Promise<void>;
+  addAll(entries: Array<{ score: number; value: string }>): Promise<void>;
+  remove(...values: Array<string>): Promise<void>;
+  range({
+    start,
+    stop,
+    withScores,
+    reverse,
+  }: {
+    start: number;
+    stop: number;
+    withScores?: boolean;
+    reverse?: boolean;
+  }): Promise<Array<string | { score: number; value: string }>>;
+  rangeByScore({
+    min,
+    max,
+    withScores,
+    reverse,
+  }: {
+    min: number;
+    max: number;
+    withScores?: boolean;
+    reverse?: boolean;
+  }): Promise<Array<string | { score: number; value: string }>>;
+  score(value: string): Promise<number | null>;
+  length(): Promise<number>;
+  clear(): Promise<void>;
+  replaceAll(entries: Array<{ score: number; value: string }>): Promise<void>;
+}
+
 // todo: rename fastCache to redisCache
 export class FastCache {
   static create(opts?: FastCacheOpts): FastCache {
@@ -179,6 +212,109 @@ export class FastCache {
       },
       contains: async (value: string): Promise<boolean> => (await this.client.sismember(key, value)) === 1,
       length: async (): Promise<number> => this.client.scard(key),
+    };
+  }
+
+  sortedSet(key: string): SortedSetOperations {
+    return {
+      key,
+      add: async (score: number, value: string): Promise<void> => {
+        await this.client.zadd(key, score, value);
+      },
+      addAll: async (entries: Array<{ score: number; value: string }>): Promise<void> => {
+        if (entries.length === 0) {
+          return;
+        }
+
+        const args = entries.flatMap((entry) => [entry.score, entry.value]);
+        await this.client.zadd(key, ...args);
+      },
+      remove: async (...values: Array<string>): Promise<void> => {
+        await this.client.zrem(key, ...values);
+      },
+      range: async ({
+        start,
+        stop,
+        withScores = false,
+        reverse = false,
+      }: {
+        start: number;
+        stop: number;
+        withScores?: boolean;
+        reverse?: boolean;
+      }): Promise<Array<string | { score: number; value: string }>> => {
+        const method = reverse ? 'zrevrange' : 'zrange';
+        const result = withScores
+          ? await this.client[method](key, start, stop, 'WITHSCORES')
+          : await this.client[method](key, start, stop);
+
+        if (!withScores) {
+          return result;
+        }
+
+        const entries: Array<{ score: number; value: string }> = [];
+        for (let i = 0; i < result.length; i += 2) {
+          entries.push({
+            value: result[i],
+            score: parseFloat(result[i + 1]),
+          });
+        }
+        return entries;
+      },
+      rangeByScore: async ({
+        min,
+        max,
+        withScores = false,
+        reverse = false,
+      }: {
+        min: number;
+        max: number;
+        withScores?: boolean;
+        reverse?: boolean;
+      }): Promise<Array<string | { score: number; value: string }>> => {
+        const method = reverse ? 'zrevrangebyscore' : 'zrangebyscore';
+        const result = withScores
+          ? await this.client[method](key, min, max, 'WITHSCORES')
+          : await this.client[method](key, min, max);
+
+        if (!withScores) {
+          return result;
+        }
+
+        const entries: Array<{ score: number; value: string }> = [];
+        for (let i = 0; i < result.length; i += 2) {
+          entries.push({
+            value: result[i],
+            score: parseFloat(result[i + 1]),
+          });
+        }
+        return entries;
+      },
+      score: async (value: string): Promise<number | null> => {
+        const score = await this.client.zscore(key, value);
+        return score !== null ? parseFloat(score) : null;
+      },
+      length: async (): Promise<number> => this.client.zcard(key),
+      clear: async (): Promise<void> => {
+        await this.client.del(key);
+      },
+      replaceAll: async (entries: Array<{ score: number; value: string }>): Promise<void> => {
+        if (entries.length === 0) {
+          await this.client.del(key);
+          return;
+        }
+
+        if (entries.some((entry) => typeof entry.score !== 'number')) {
+          throw new Error('score is not a number');
+        }
+
+        const tempKey = `${key}:temp:${Date.now()}`;
+
+        const args = entries.flatMap((entry) => [entry.score, entry.value]);
+        await this.client.zadd(tempKey, ...args);
+        await this.client.expire(tempKey, 60);
+        await this.client.rename(tempKey, key);
+      },
     };
   }
 
