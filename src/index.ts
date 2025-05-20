@@ -6,5 +6,6 @@ export {
   ListOperations,
   MapOperations,
   SetOperations,
+  SortedSetOperations,
 } from './FastCache';
 export { InMemoryCache } from './InMemoryCache';
