@@ -219,15 +219,20 @@ export class FastCache {
     return {
       key,
       add: async (score: number, value: string): Promise<void> => {
-        await this.client.zadd(key, score, value);
+        const multi = this.client.multi();
+        multi.zadd(key, score, value);
+        multi.expire(key, this.ttl);
+        await multi.exec();
       },
       addAll: async (entries: Array<{ score: number; value: string }>): Promise<void> => {
         if (entries.length === 0) {
           return;
         }
-
         const args = entries.flatMap((entry) => [entry.score, entry.value]);
-        await this.client.zadd(key, ...args);
+        const multi = this.client.multi();
+        multi.zadd(key, ...args);
+        multi.expire(key, this.ttl);
+        await multi.exec();
       },
       remove: async (...values: Array<string>): Promise<void> => {
         await this.client.zrem(key, ...values);
@@ -308,12 +313,13 @@ export class FastCache {
           throw new Error('score is not a number');
         }
 
-        const tempKey = `${key}:temp:${Date.now()}`;
-
         const args = entries.flatMap((entry) => [entry.score, entry.value]);
-        await this.client.zadd(tempKey, ...args);
-        await this.client.expire(tempKey, 60);
-        await this.client.rename(tempKey, key);
+
+        const multi = this.client.multi();
+        multi.del(key);
+        multi.zadd(key, ...args);
+        multi.expire(key, this.ttl);
+        await multi.exec();
       },
     };
   }
