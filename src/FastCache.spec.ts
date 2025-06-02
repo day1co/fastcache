@@ -431,6 +431,27 @@ describe('FastCache', () => {
         expect(values).toHaveLength(0);
       });
     });
+
+    describe('zincrBy', () => {
+      test('값의 score를 증가시키면 증가된 score가 반환된다', async () => {
+        const sortedSet = cache.sortedSet('hello');
+
+        await sortedSet.add(100, 'foo');
+        const newScore1 = await sortedSet.zincrBy('foo', 50);
+        expect(newScore1).toBe(150);
+        const newScore2 = await sortedSet.zincrBy('foo', 25);
+        expect(newScore2).toBe(175);
+      });
+
+      test('새로운 값을 추가할 때도 정상 동작하는지 확인', async () => {
+        const sortedSet = cache.sortedSet('hello');
+        await sortedSet.zincrBy('foo', 10);
+
+        const score = await sortedSet.score('foo');
+
+        expect(score).toBe(10);
+      });
+    });
   });
 
   describe('withCache', () => {
