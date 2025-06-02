@@ -47,6 +47,7 @@ export interface SortedSetOperations {
   add(score: number, value: string): Promise<void>;
   addAll(entries: Array<{ score: number; value: string }>): Promise<void>;
   remove(...values: Array<string>): Promise<void>;
+  zincrBy(value: string, increment: number): Promise<number>;
   range({
     start,
     stop,
@@ -236,6 +237,10 @@ export class FastCache {
       },
       remove: async (...values: Array<string>): Promise<void> => {
         await this.client.zrem(key, ...values);
+      },
+      zincrBy: async (value: string, increment: number): Promise<number> => {
+        const result = await this.client.zincrby(key, increment, value);
+        return parseFloat(result);
       },
       range: async ({
         start,
