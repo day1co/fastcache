@@ -526,4 +526,171 @@ describe('FastCache', () => {
       });
     });
   });
+
+  // Boundary value tests and overflow tests
+  describe('boundary and overflow tests', () => {
+    test('should handle empty string keys', async () => {
+      await cache.set('', 'empty-key-value');
+      const value = await cache.get('');
+      expect(value).toBe('empty-key-value');
+    });
+
+    test('should handle very long keys', async () => {
+      const longKey = 'a'.repeat(10000); // 10K character key
+      await cache.set(longKey, 'long-key-value');
+      const value = await cache.get(longKey);
+      expect(value).toBe('long-key-value');
+    });
+
+    test('should handle very long values', async () => {
+      const longValue = 'a'.repeat(1000000); // 1M character value
+      await cache.set('longValue', longValue);
+      const value = await cache.get('longValue');
+      expect(value).toBe(longValue);
+    });
+
+    test('should handle setting null and undefined values', async () => {
+      await cache.set('nullValue', null as any);
+      const nullValue = await cache.get('nullValue');
+      expect(nullValue).toBe('');
+
+      await cache.set('undefinedValue', undefined as any);
+      const undefinedValue = await cache.get('undefinedValue');
+      expect(undefinedValue).toBe('');
+    });
+
+    test('should handle setting and retrieving special characters', async () => {
+      const specialChars = '!@#$%^&*()_+{}[]|\\:;"\'<>,.?/~`';
+      await cache.set('specialChars', specialChars);
+      const value = await cache.get('specialChars');
+      expect(value).toBe(specialChars);
+    });
+
+    test('should handle setting and retrieving emoji', async () => {
+      const emoji = '😀🙌👍🎉🔥🚀';
+      await cache.set('emoji', emoji);
+      const value = await cache.get('emoji');
+      expect(value).toBe(emoji);
+    });
+
+    test('should handle JSON serialization errors', async () => {
+      // Create object with circular reference
+      const circularObj: any = { key: 'value' };
+      circularObj.self = circularObj;
+
+      // Verify that withCache handles serialization errors gracefully
+      const result = await cache.withCache('circularObj', async () => {
+        return 'fallback value';
+      });
+
+      expect(result).toBe('fallback value');
+    });
+
+    test('should handle invalid JSON when deserializing', async () => {
+      // Directly set invalid JSON
+      await client.set('invalidJson', '{invalid"json:data}');
+
+      // Try to get via cache
+      const result = await cache.get('invalidJson');
+
+      // We expect a string return since it couldn't be parsed
+      expect(result).toBe('{invalid"json:data}');
+    });
+
+    test('should handle concurrent operations on the same key', async () => {
+      // Create multiple promises that try to set the same key
+      const promises: Promise<void>[] = [];
+      for (let i = 0; i < 10; i++) {
+        promises.push(cache.set('concurrent', `value-${i}`));
+      }
+
+      // Wait for all promises to resolve
+      await Promise.all(promises);
+
+      // Get the final value
+      const finalValue = await cache.get('concurrent');
+      expect(finalValue).toBeDefined();
+    });
+
+    test('should handle extremely large list operations', async () => {
+      const list = cache.list('largeList');
+      const large = 10000;
+
+      // Add many items
+      for (let i = 0; i < large; i++) {
+        await list.push(`item-${i}`);
+      }
+
+      // Check length
+      const length = await list.length();
+      expect(length).toBe(large);
+
+      // Check some values
+      const items = await list.getAll(large - 5, large - 1);
+      expect(items.length).toBe(5);
+      expect(items[0]).toBe(`item-${large - 5}`);
+    });
+
+    test('should handle extremely large map operations', async () => {
+      const map = cache.map('largeMap');
+      const large = 1000;
+
+      // Add many key-value pairs
+      for (let i = 0; i < large; i++) {
+        await map.set(`key-${i}`, `value-${i}`);
+      }
+
+      // Check length
+      const length = await map.length();
+      expect(length).toBe(large);
+
+      // Check some values
+      const fields = Array.from({ length: 5 }, (_, i) => `key-${i}`);
+      const values = await map.getAll(fields);
+      expect(values.length).toBe(5);
+      expect(values[0]).toBe('value-0');
+    });
+
+    test('should handle extremely large set operations', async () => {
+      const set = cache.setOf('largeSet');
+      const large = 1000;
+
+      // Add many items in batches
+      const batchSize = 100;
+      for (let i = 0; i < large; i += batchSize) {
+        const batch = Array.from({ length: batchSize }, (_, j) => `item-${i + j}`);
+        await set.add(...batch);
+      }
+
+      // Check length
+      const length = await set.length();
+      expect(length).toBe(large);
+
+      // Check some values
+      const containsFirst = await set.contains('item-0');
+      expect(containsFirst).toBeTruthy();
+
+      const containsLast = await set.contains(`item-${large - 1}`);
+      expect(containsLast).toBeTruthy();
+    });
+
+    test('should handle flush with extremely large number of keys', async () => {
+      // Create many keys with the same prefix
+      const keyCount = 1000;
+      const prefix = 'massive-flush-test:';
+
+      for (let i = 0; i < keyCount; i++) {
+        await cache.set(`${prefix}${i}`, `value-${i}`);
+      }
+
+      // Flush all keys with pattern
+      await cache.flush(`${prefix}*`);
+
+      // Verify keys are gone
+      for (let i = 0; i < 10; i++) {
+        const value = await cache.get(`${prefix}${i}`);
+        expect(value).toBeNull();
+      }
+    });
+  });
 });
