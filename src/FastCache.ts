@@ -76,6 +76,32 @@ export interface SortedSetOperations {
   replaceAll(entries: Array<{ score: number; value: string }>): Promise<void>;
 }
 
+export interface MultiOperations {
+  set(key: string, value: string, ttl?: number): MultiOperations;
+  get(key: string): MultiOperations;
+  remove(key: string): MultiOperations;
+  listPush(key: string, value: string): MultiOperations;
+  listPop(key: string): MultiOperations;
+  listUnshift(key: string, value: string): MultiOperations;
+  listShift(key: string): MultiOperations;
+  listSetAll(key: string, values: Array<string>): MultiOperations;
+  listGetAll(key: string, start: number, stop: number): MultiOperations;
+  listRemoveAll(key: string, start: number, stop: number): MultiOperations;
+  listLength(key: string): MultiOperations;
+  mapSet(key: string, field: string, value: string): MultiOperations;
+  mapSetAll(key: string, obj: Record<string, unknown>): MultiOperations;
+  mapGet(key: string, field: string): MultiOperations;
+  mapGetAll(key: string, fields: Array<string>): MultiOperations;
+  mapRemove(key: string, field: string): MultiOperations;
+  mapRemoveAll(key: string, fields: Array<string>): MultiOperations;
+  setAdd(key: string, ...values: Array<string>): MultiOperations;
+  setRemove(key: string, ...values: Array<string>): MultiOperations;
+  setContains(key: string, value: string): MultiOperations;
+  setLength(key: string): MultiOperations;
+  expire(key: string, seconds: number): MultiOperations;
+  exec(): Promise<Array<any>>;
+}
+
 // todo: rename fastCache to redisCache
 export class FastCache {
   static create(opts?: FastCacheOpts): FastCache {
@@ -327,6 +353,156 @@ export class FastCache {
         await multi.exec();
       },
     };
+  }
+
+  //---------------------------------------------------------
+
+  public multi(): MultiOperations {
+    const multiClient = this.client.multi();
+    const operations: Array<() => void> = [];
+
+    const multiOperations: MultiOperations = {
+      set: (key: string, value: string, ex?: number): MultiOperations => {
+        operations.push(() => {
+          multiClient.set(key, value, 'EX', ex ?? this.ttl);
+        });
+        return multiOperations;
+      },
+      get: (key: string): MultiOperations => {
+        operations.push(() => {
+          multiClient.get(key);
+        });
+        return multiOperations;
+      },
+      remove: (key: string): MultiOperations => {
+        operations.push(() => {
+          multiClient.del(key);
+        });
+        return multiOperations;
+      },
+      listPush: (key: string, value: string): MultiOperations => {
+        operations.push(() => {
+          multiClient.rpush(key, value);
+        });
+        return multiOperations;
+      },
+      listPop: (key: string): MultiOperations => {
+        operations.push(() => {
+          multiClient.rpop(key);
+        });
+        return multiOperations;
+      },
+      listUnshift: (key: string, value: string): MultiOperations => {
+        operations.push(() => {
+          multiClient.lpush(key, value);
+        });
+        return multiOperations;
+      },
+      listShift: (key: string): MultiOperations => {
+        operations.push(() => {
+          multiClient.lpop(key);
+        });
+        return multiOperations;
+      },
+      listSetAll: (key: string, values: Array<string>): MultiOperations => {
+        operations.push(() => {
+          multiClient.lpush(key, ...values);
+        });
+        return multiOperations;
+      },
+      listGetAll: (key: string, start = 0, stop = -1): MultiOperations => {
+        operations.push(() => {
+          multiClient.lrange(key, start, stop);
+        });
+        return multiOperations;
+      },
+      listRemoveAll: (key: string, start = -1, stop = 0): MultiOperations => {
+        operations.push(() => {
+          multiClient.ltrim(key, start, stop);
+        });
+        return multiOperations;
+      },
+      listLength: (key: string): MultiOperations => {
+        operations.push(() => {
+          multiClient.llen(key);
+        });
+        return multiOperations;
+      },
+      mapSet: (key: string, field: string, value: string): MultiOperations => {
+        operations.push(() => {
+          multiClient.hset(key, field, value);
+        });
+        return multiOperations;
+      },
+      mapSetAll: (key: string, obj: Record<string, unknown>): MultiOperations => {
+        operations.push(() => {
+          multiClient.hmset(key, obj);
+        });
+        return multiOperations;
+      },
+      mapGet: (key: string, field: string): MultiOperations => {
+        operations.push(() => {
+          multiClient.hget(key, field);
+        });
+        return multiOperations;
+      },
+      mapGetAll: (key: string, fields: Array<string>): MultiOperations => {
+        operations.push(() => {
+          multiClient.hmget(key, ...fields);
+        });
+        return multiOperations;
+      },
+      mapRemove: (key: string, field: string): MultiOperations => {
+        operations.push(() => {
+          multiClient.hdel(key, field);
+        });
+        return multiOperations;
+      },
+      mapRemoveAll: (key: string, fields: Array<string>): MultiOperations => {
+        operations.push(() => {
+          multiClient.hdel(key, ...fields);
+        });
+        return multiOperations;
+      },
+      setAdd: (key: string, ...values: Array<string>): MultiOperations => {
+        operations.push(() => {
+          multiClient.sadd(key, ...values);
+        });
+        return multiOperations;
+      },
+      setRemove: (key: string, ...values: Array<string>): MultiOperations => {
+        operations.push(() => {
+          multiClient.srem(key, ...values);
+        });
+        return multiOperations;
+      },
+      setContains: (key: string, value: string): MultiOperations => {
+        operations.push(() => {
+          multiClient.sismember(key, value);
+        });
+        return multiOperations;
+      },
+      setLength: (key: string): MultiOperations => {
+        operations.push(() => {
+          multiClient.scard(key);
+        });
+        return multiOperations;
+      },
+      expire: (key: string, seconds: number): MultiOperations => {
+        operations.push(() => {
+          multiClient.expire(key, seconds);
+        });
+        return multiOperations;
+      },
+      exec: async (): Promise<Array<any>> => {
+        operations.forEach((operation) => operation());
+        const result = await multiClient.exec();
+        // ioredis의 multi.exec() 결과에서 실제 값만 추출
+        return result ? result.map(([, value]) => value) : [];
+      },
+    };
+
+    return multiOperations;
   }
 
   //---------------------------------------------------------
